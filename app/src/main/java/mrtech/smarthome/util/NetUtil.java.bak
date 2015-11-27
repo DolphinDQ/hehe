@@ -1,0 +1,318 @@
+package mrtech.smarthome.util;
+/**
+ *
+ */
+
+import java.io.BufferedReader;
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.security.GeneralSecurityException;
+import java.security.InvalidAlgorithmParameterException;
+import java.security.KeyStore;
+import java.security.NoSuchAlgorithmException;
+import java.security.SecureRandom;
+import java.security.cert.CertPath;
+import java.security.cert.CertPathValidator;
+import java.security.cert.CertPathValidatorException;
+import java.security.cert.Certificate;
+import java.security.cert.CertificateException;
+import java.security.cert.CertificateFactory;
+import java.security.cert.PKIXParameters;
+import java.security.cert.TrustAnchor;
+import java.security.cert.X509Certificate;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.HashSet;
+import java.util.Set;
+
+import javax.net.ssl.HostnameVerifier;
+import javax.net.ssl.KeyManagerFactory;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLSession;
+import javax.net.ssl.SSLSocket;
+import javax.net.ssl.SSLSocketFactory;
+import javax.net.ssl.TrustManager;
+import javax.net.ssl.TrustManagerFactory;
+import javax.net.ssl.X509TrustManager;
+
+import mrtech.smarthome.bean.RouterConnectBean;
+import okio.Buffer;
+
+import android.content.Context;
+import android.net.ConnectivityManager;
+import android.provider.SyncStateContract;
+import android.util.Base64;
+
+import com.squareup.okhttp.OkHttpClient;
+import com.stream.NewAllStreamParser;
+
+/**
+ * @author CJ
+ * @version 1.0
+ * @date
+ */
+public class NetUtil {
+    private static TrustManager myX509TrustManager = new X509TrustManager() {
+        @Override
+        public X509Certificate[] getAcceptedIssuers() {
+            return null;
+        }
+
+        @Override
+        public void checkServerTrusted(X509Certificate[] chain, String authType) throws CertificateException {
+        }
+
+        @Override
+        public void checkClientTrusted(X509Certificate[] chain, String authType) throws CertificateException {
+        }
+    };
+
+    /**
+     * 获取sslsocket
+     * @return
+     * @throws Exception
+     */
+//	public static SSLSocket getSSLSocket() throws Exception
+//	{
+//		if (SmartHomeApp.post > 0)
+//			NewAllStreamParser.DNPDelPort(Constants.handle, SmartHomeApp.post);
+//		SmartHomeApp.post = NewAllStreamParser.DNPAddPort(Constants.handle, Constants.UMID);// �?��映射端口
+//		mrtech.smarthome.util.LogUtil.e("SmartHomeApp.post", "" + SmartHomeApp.post);
+//		SSLSocket s = null;
+//		CertificateFactory cf = CertificateFactory.getInstance("X.509");
+//		ByteArrayInputStream bain = new ByteArrayInputStream(Base64.decode(Constants.PRIVATE_CODE, Base64.DEFAULT));
+//		X509Certificate cert = (X509Certificate) cf.generateCertificate(bain);
+//
+//		// 取得SSL的SSLContext实例
+//		SSLContext sslContext = SSLContext.getInstance("TLSv1.2");
+//		mrtech.smarthome.util.SmartHomeX509TrustManager x509TrustManager = new mrtech.smarthome.util.SmartHomeX509TrustManager(new X509Certificate[]{cert}, cert);
+//		sslContext.init(null, new TrustManager[]
+//		{ x509TrustManager }, null);
+//		SSLSocketFactory factory = sslContext.getSocketFactory();
+//		s = (SSLSocket) factory.createSocket("localhost", SmartHomeApp.post);
+//		s.setSoTimeout(60 * 1000);
+//		s.startHandshake();
+//		return s;
+//	}
+
+    /**
+     * 获取sslsocket
+     *
+     * @return
+     * @throws Exception
+     */
+    public static RouterConnectBean getSSLSocket(RouterConnectBean routerConnectBean) throws Exception {
+        if (routerConnectBean.getPort() > 0)
+            NewAllStreamParser.DNPDelPort(routerConnectBean.getHandle(), routerConnectBean.getPort());
+        routerConnectBean.setPort(NewAllStreamParser.DNPAddPort(routerConnectBean.getHandle(), routerConnectBean.getUmid()));// �?��映射端口
+        LogUtil.e("SmartHomeApp.post", routerConnectBean.getUmid() + " = " + routerConnectBean.getPort());
+        routerConnectBean.handler.sendEmptyMessage(100);
+        SSLSocket s = null;
+        CertificateFactory cf = CertificateFactory.getInstance("X.509");
+        ByteArrayInputStream bain = new ByteArrayInputStream(Base64.decode(Constants.PRIVATE_CODE, Base64.DEFAULT));
+        X509Certificate cert = (X509Certificate) cf.generateCertificate(bain);
+
+        // 取得SSL的SSLContext实例
+        SSLContext sslContext = SSLContext.getInstance("TLSv1.2");
+        SmartHomeX509TrustManager x509TrustManager = new SmartHomeX509TrustManager(new X509Certificate[]{cert}, cert);
+        sslContext.init(null, new TrustManager[]
+                {x509TrustManager}, null);
+        SSLSocketFactory factory = sslContext.getSocketFactory();
+        s = (SSLSocket) factory.createSocket("localhost", routerConnectBean.getPort());
+        s.setSoTimeout(60 * 1000);
+        s.startHandshake();
+        routerConnectBean.setSslSocket(s);
+        routerConnectBean.handler.sendEmptyMessage(200);
+        return routerConnectBean;
+    }
+
+    public static OkHttpClient getOkHttpClient() throws Exception {
+        OkHttpClient client = new OkHttpClient();
+//		SSLContext sslContext = sslContextForTrustedCertificates(trustedCertificatesInputStream());
+        SSLContext sslContext = SSLContext.getInstance("TLS");
+        sslContext.init(null, new TrustManager[]{myX509TrustManager}, null);
+        client.setSslSocketFactory(sslContext.getSocketFactory());
+//		CertificateFactory cf = CertificateFactory.getInstance("X.509");
+//		ByteArrayInputStream bain = new ByteArrayInputStream(Base64.decode(Constants.OAUTH_PRIVATE_CODE, Base64.DEFAULT));
+//		X509Certificate cert = (X509Certificate) cf.generateCertificate(bain);
+//		SSLContext sslContext = SSLContext.getInstance("TLS");
+//		mrtech.smarthome.util.SmartHomeX509TrustManager x509TrustManager = new mrtech.smarthome.util.SmartHomeX509TrustManager(new X509Certificate[]{cert}, cert);
+//		sslContext.init(null, new TrustManager[]
+//		{ x509TrustManager }, null);
+//		SSLSocketFactory factory = sslContext.getSocketFactory();
+//		
+//		client.setSslSocketFactory(factory);
+        client.setHostnameVerifier(new HostnameVerifier() {
+            @Override
+            public boolean verify(String hostname, SSLSession session) {
+                return true;
+            }
+        });
+        return client;
+    }
+
+    public static SSLContext sslContextForTrustedCertificates(InputStream in) {
+        try {
+            CertificateFactory certificateFactory = CertificateFactory.getInstance("X.509");
+            Collection<? extends Certificate> certificates = certificateFactory.generateCertificates(in);
+            if (certificates.isEmpty()) {
+                throw new IllegalArgumentException("expected non-empty set of trusted certificates");
+            }
+            // Put the certificates a key store.
+            char[] password = "password".toCharArray(); // Any password will
+            // work.
+            KeyStore keyStore = newEmptyKeyStore(password);
+            int index = 0;
+            for (Certificate certificate : certificates) {
+                String certificateAlias = Integer.toString(index++);
+                keyStore.setCertificateEntry(certificateAlias, certificate);
+            }
+
+            // Wrap it up in an SSL context.
+            KeyManagerFactory keyManagerFactory = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
+            keyManagerFactory.init(keyStore, password);
+            TrustManagerFactory trustManagerFactory = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
+            trustManagerFactory.init(keyStore);
+            SSLContext sslContext = SSLContext.getInstance("TLS");
+            sslContext.init(keyManagerFactory.getKeyManagers(), trustManagerFactory.getTrustManagers(), new SecureRandom());
+            return sslContext;
+        } catch (GeneralSecurityException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private static KeyStore newEmptyKeyStore(char[] password) throws GeneralSecurityException {
+        try {
+            KeyStore keyStore = KeyStore.getInstance(KeyStore.getDefaultType());
+            InputStream in = null; // By convention, 'null' creates an empty key
+            // store.
+            keyStore.load(in, password);
+            return keyStore;
+        } catch (IOException e) {
+            throw new AssertionError(e);
+        }
+    }
+
+    private static InputStream trustedCertificatesInputStream() {
+        // PEM files for root certificates of Comodo and Entrust. These two CAs are sufficient to view
+        // https://publicobject.com (Comodo) and https://squareup.com (Entrust). But they aren't
+        // sufficient to connect to most HTTPS sites including https://godaddy.com and https://visa.com.
+        // Typically developers will need to get a PEM file from their organization's TLS administrator.
+        String comodoRsaCertificationAuthority = ""
+                + "-----BEGIN CERTIFICATE-----\n"
+                + "MIIDQDCCAigCCQCnLwVl+JdlJzANBgkqhkiG9w0BAQUFADBpMQswCQYDVQQGEwJD\n"
+                + "TjESMBAGA1UECAwJR3VhbmdEb25nMRAwDgYDVQQHDAdIdWlaaG91MRAwDgYDVQQK\n"
+                + "DAdNYW9Sb25nMREwDwYDVQQLDAhET0IgVEVTVDEPMA0GA1UEAwwGRG9uZ3FpMB4X\n"
+                + "DTE1MDcwMzA2MzEzN1oXDTE3MDcwMjA2MzEzN1owWzELMAkGA1UEBhMCQ04xEjAQ\n"
+                + "BgNVBAgMCUd1YW5nRG9uZzEQMA4GA1UEBwwHSHVpWmhvdTEQMA4GA1UECgwHTWFv\n"
+                + "Um9uZzEUMBIGA1UECwwLRG9iIENsaWVudCAwggEiMA0GCSqGSIb3DQEBAQUAA4IB\n"
+                + "DwAwggEKAoIBAQC+wfzYAf7KUJsHX8xV4c0ZlVdMGC3/vYxKkDySUu500bNvxxzD\n"
+                + "pYMh3HP0KKHM7EGo1VZvAt3YBJjdCtX2IvCPELnY2w5Yu80oyYi3fLeO3WEGi+QU\n"
+                + "HGxG3onQ/ZyIW4h6AfeAOxfQvZxg+dkiIw1oD5UzDnjJCFtDk0VrRE1nSUc2NXrt\n"
+                + "z7kKPNzd7KjRccPUmF82FSkHTMcEgSm9R2XZjeMOkH1i4nOaitfCvkoc6nJqzPIB\n"
+                + "9fnPv9dy2tb7rKQAOkiro3zeaZZuLytyoTUywzeQSDwOdFPWKXF46jCyZx3vHoVL\n"
+                + "IzhwBCrmM7D4U8KKQk9CrjePIl7Ia6kx46pFAgMBAAEwDQYJKoZIhvcNAQEFBQAD\n"
+                + "ggEBAGmZ/ol2WtXJwQKRYfTXYhdwMRJdX4nt1uB9SoLFVYNUnZNtc0HU23YlfR/U\n"
+                + "Zg1uf1aJkHgXF9Hz444qjMD/TxukO+j2A1AUjYm+/ikXXxCKQENoAAiMZJ0hZv95\n"
+                + "srJobYIvycPgJ81coKh9YvNGzjReHSK0NywjZ6pDZ72Ya/LmvrT2G/IINHX0H73K\n"
+                + "0zK8tYtXPJPXQfcXhXZdWZ+2bvjevRwIhl5IYpS+Yx5PvGng5+kpRIPX+zCi2SpD\n"
+                + "41CUqOEftatyLlgcTQRy8B8gz4N1JCa+D9R2j4QxhFmgz/FXEXqGG29rYSI+w+1l\n"
+                + "xzCoZToobplrY8tAHrgiOERzY4s=\n"
+                + "-----END CERTIFICATE-----\n";
+        return new Buffer()
+                .writeUtf8(comodoRsaCertificationAuthority)
+                .inputStream();
+    }
+
+    public static boolean isNetworkAvailable(Context context) {
+        // 得到网络连接信息
+        ConnectivityManager manager = (ConnectivityManager) context.getSystemService(Context.CONNECTIVITY_SERVICE);
+        // 去进行判断网络是否连
+        if (manager.getActiveNetworkInfo() != null) {
+            return manager.getActiveNetworkInfo().isAvailable();
+        }
+        return false;
+    }
+
+    public static boolean ping() {
+        String result = null;
+        try {
+            String ip = "www.baidu.com";// ping 的地可以换成任何�?��可靠的外
+            Process p = Runtime.getRuntime().exec("ping -c 3 -w 100 " + ip);// ping网址3�?			// 读取ping的内容，可以不加
+            InputStream input = p.getInputStream();
+            BufferedReader in = new BufferedReader(new InputStreamReader(input));
+            StringBuffer stringBuffer = new StringBuffer();
+            String content = "";
+            while ((content = in.readLine()) != null) {
+                stringBuffer.append(content);
+            }
+            LogUtil.e("ping", "result content : " + stringBuffer.toString());
+            // ping的状�?
+            int status = p.waitFor();
+            if (status == 0) {
+                result = "success";
+                return true;
+            } else {
+                result = "failed";
+            }
+        } catch (IOException e) {
+            result = "IOException";
+        } catch (InterruptedException e) {
+            result = "InterruptedException";
+        } finally {
+            LogUtil.e("ping", "result = " + result);
+        }
+        return false;
+    }
+}
+
+class SmartHomeX509TrustManager implements X509TrustManager {
+    private final Set<TrustAnchor> anchors;
+    private X509Certificate cert;
+
+    public SmartHomeX509TrustManager(X509Certificate[] trusted, X509Certificate cert) {
+        anchors = new HashSet<TrustAnchor>();
+        this.cert = cert;
+        if (anchors != null) {
+            for (X509Certificate certTemp : trusted) {
+                anchors.add(new TrustAnchor(certTemp, null));
+            }
+        }
+    }
+
+    @Override
+    public void checkClientTrusted(X509Certificate[] chain, String authType)
+            throws CertificateException {
+
+    }
+
+    @Override
+    public void checkServerTrusted(X509Certificate[] chain, String authType)
+            throws CertificateException {
+        CertPathValidator certPathValidator = null;
+        PKIXParameters parameters = null;
+        CertificateFactory certFactory = CertificateFactory.getInstance("X.509");
+        CertPath path = certFactory.generateCertPath(Arrays.asList(chain));
+        try {
+            certPathValidator = CertPathValidator.getInstance("PKIX");
+            parameters = new PKIXParameters(anchors);
+            parameters.setRevocationEnabled(false);
+            certPathValidator.validate(path, parameters);
+        } catch (NoSuchAlgorithmException e) {
+            e.printStackTrace();
+        } catch (InvalidAlgorithmParameterException e1) {
+            e1.printStackTrace();
+        } catch (CertPathValidatorException e) {
+            e.printStackTrace();
+        }
+
+    }
+
+    @Override
+    public X509Certificate[] getAcceptedIssuers() {
+        return new X509Certificate[]
+                {cert};
+    }
+}
